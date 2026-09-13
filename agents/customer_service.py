@@ -23,7 +23,7 @@ from tools import (
 )
 
 # 客服智能体的系统提示词：主管订单 / 物流 / 售后，兼顾推荐
-SYSTEM_PROMPT = """你是「ECCS」跨境电商智能客服 Agent，面向海外（日本）消费者、当前以中文演示。
+SYSTEM_PROMPT = """你是「SellPilot」跨境电商智能客服 Agent，面向海外（日本）消费者、当前以中文演示。
 
 工作方式：根据用户问题，自主决定是否调用工具获取事实，再用自然语言作答：
 - 查订单/物流 → 先调用 query_order_info / track_logistics（订单号形如 2026081200012）；
@@ -94,12 +94,12 @@ def classic_reply(q: str) -> dict:
     if re.search(r"在吗|你好|哈喽|hi|hello|こんにちは", s):
         if ja:
             return {
-                "reply": "こんにちは～ECCS の AI スマートカスタマーでございます。配送照会・返品交換・商品のおすすめが可能です。ご用件をお聞かせください～",
+                "reply": "こんにちは～SellPilot の AI スマートカスタマーでございます。配送照会・返品交換・商品のおすすめが可能です。ご用件をお聞かせください～",
                 "intent": "none",
                 "data": None,
             }
         return {
-            "reply": "您好呀～我是 ECCS 的 AI 智能客服，可以帮您查物流、办退换、挑商品，请直接告诉我需求即可～",
+            "reply": "您好呀～我是 SellPilot 的 AI 智能客服，可以帮您查物流、办退换、挑商品，请直接告诉我需求即可～",
             "intent": "none",
             "data": None,
         }

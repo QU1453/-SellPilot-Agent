@@ -142,6 +142,6 @@ TOOL_PLANNING_ROUNDS_BASE: int = int(os.getenv("TOOL_PLANNING_ROUNDS_BASE", "2")
 # MCP 协议：版本号 / 传输方式（inprocess=同进程直连；stdio=独立 server 进程）
 MCP_PROTOCOL_VERSION: str = os.getenv("MCP_PROTOCOL_VERSION", "2024-11-05")
 MCP_TRANSPORT: str = os.getenv("MCP_TRANSPORT", "inprocess").strip().lower()
-MCP_SERVER_NAME: str = os.getenv("MCP_SERVER_NAME", "eccs-tool-server")
+MCP_SERVER_NAME: str = os.getenv("MCP_SERVER_NAME", "sellpilot-tool-server")
 MCP_SERVER_VERSION: str = "1.0.0"
 

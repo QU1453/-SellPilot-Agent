@@ -6,8 +6,8 @@
 services:
   agent:
     build: .
-    image: eccs-agent:latest
-    container_name: eccs-agent
+    image: sellpilot-agent:latest
+    container_name: sellpilot-agent
     ports:
       - "8623:8623"
     environment:
@@ -38,14 +38,14 @@ services:
     volumes:
       # 运行时数据持久化（容器重建不丢）：短期记忆 checkpoint / 长期记忆 ANN /
       # 权限审计 / 遥测库（调试后台 /debug 的数据源）
-      - eccs_short_term:/app/memory/short_term/data
-      - eccs_long_term:/app/memory/long_term/data
-      - eccs_audit:/app/memory/data
-      - eccs_telemetry:/app/core/telemetry/data
+      - sellpilot_short_term:/app/memory/short_term/data
+      - sellpilot_long_term:/app/memory/long_term/data
+      - sellpilot_audit:/app/memory/data
+      - sellpilot_telemetry:/app/core/telemetry/data
     restart: unless-stopped
 
 volumes:
-  eccs_short_term:
-  eccs_long_term:
-  eccs_audit:
-  eccs_telemetry:
+  sellpilot_short_term:
+  sellpilot_long_term:
+  sellpilot_audit:
+  sellpilot_telemetry:

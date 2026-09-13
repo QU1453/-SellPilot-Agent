@@ -1,5 +1,5 @@
 /* =====================================================================
-   ECCS 卖家工作台 · 双工作台（选品 / Listing）× 中/日一键切换
+   SellPilot 卖家工作台 · 双工作台（选品 / Listing）× 中/日一键切换
    - 每个工作台独立聊天流 + 独立谈话会话（session_id）
    - 「结束谈话」→ POST /api/conversation/end 触发一级总结管线
    - 后端桥接：POST /api/ask → Python 多智能体（不可达时本地演示兜底）
@@ -25,7 +25,7 @@ const NAME_ZH2JA = Object.fromEntries(Object.values(PRODUCTS).map(p => [p.zh, p.
 /* ---------- 多语言文案 ---------- */
 const I18N = {
   zh: {
-    docTitle: "ECCS 卖家工作台", title: "ECCS 卖家工作台", status: "在线 · 秒回",
+    docTitle: "SellPilot 卖家工作台", title: "SellPilot 卖家工作台", status: "在线 · 秒回",
     placeholder: "输入选品/上架需求…（Enter 发送）", hint: "AI 多智能体工作台 · 选品 + Listing 上架",
     thinking: "智能体思考中…", replied: "智能体已回复", clearTip: "清空对话", endTalk: "结束谈话",
     tabResearch: "选品工作台", tabListing: "Listing 工作台",
@@ -46,7 +46,7 @@ const I18N = {
     }
   },
   ja: {
-    docTitle: "ECCS セラーコンソール", title: "ECCS セラーコンソール", status: "オンライン · 即返信",
+    docTitle: "SellPilot セラーコンソール", title: "SellPilot セラーコンソール", status: "オンライン · 即返信",
     placeholder: "選品・出品のご要望を入力…（Enterで送信）", hint: "AI マルチエージェント · 選品 + 出品支援",
     thinking: "エージェントが考え中…", replied: "エージェントが返信しました", clearTip: "会話を消去", endTalk: "会話を終了",
     tabResearch: "選品ワークベンチ", tabListing: "Listing ワークベンチ",
@@ -68,13 +68,13 @@ const I18N = {
   }
 };
 
-let lang = localStorage.getItem("eccs-lang") || "zh";
+let lang = localStorage.getItem("sellpilot-lang") || "zh";
 const L = () => I18N[lang];
 
 /* ---------- 双工作台配置 ---------- */
 const BENCHES = {
-  research: { msgsId: "msgs-research", sidKey: "eccs-sid-research", greetKey: "greetResearch" },
-  listing:  { msgsId: "msgs-listing",  sidKey: "eccs-sid-listing",  greetKey: "greetListing" }
+  research: { msgsId: "msgs-research", sidKey: "sellpilot-sid-research", greetKey: "greetResearch" },
+  listing:  { msgsId: "msgs-listing",  sidKey: "sellpilot-sid-listing",  greetKey: "greetListing" }
 };
 let activeBench = "research";
 
@@ -222,7 +222,7 @@ function localAnswer(q) {
   if (/(listing|上架|标题|五点|出品)/.test(s)) {
     return { reply: "「云感耳机」Listing 草稿已生成（见卡片）：", intent: "listing",
       data: { type: "listing_draft", product: "云感耳机",
-        title: "ECCS Wireless Earbuds with ANC HiFi Stereo / 36H Playtime / IPX5 for Sports & Commuting",
+        title: "SellPilot Wireless Earbuds with ANC HiFi Stereo / 36H Playtime / IPX5 for Sports & Commuting",
         title_len: 80, bullets: [
           "主动降噪，通勤地铁一戴安静：双馈 ANC 降噪深度 -35dB，专注不被打扰。",
           "36 小时长续航：单次 8h + 充电盒再续 28h，出差一周不用带线。",
@@ -240,7 +240,7 @@ function localAnswer(q) {
 }
 
 /* ---------- 后端桥接：窗口输入 → Python 多智能体 ---------- */
-const SID_KEYS = { research: "eccs-sid-research", listing: "eccs-sid-listing" };
+const SID_KEYS = { research: "sellpilot-sid-research", listing: "sellpilot-sid-listing" };
 function sidOf(bench) { return localStorage.getItem(SID_KEYS[bench]) || ""; }
 function storeSid(bench, sid) { localStorage.setItem(SID_KEYS[bench], sid); }
 
@@ -351,7 +351,7 @@ function switchBench(bench) {
 function setLang(l, announce = true) {
   if (l === lang && announce) return;
   lang = l;
-  localStorage.setItem("eccs-lang", l);
+  localStorage.setItem("sellpilot-lang", l);
   document.documentElement.lang = (l === "ja") ? "ja" : "zh-CN";
   document.title = L().docTitle;
 

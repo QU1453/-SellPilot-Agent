@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# ECCS Agent —— 单服务镜像（FastAPI + LangGraph + 前端页面）
+# SellPilot Agent —— 单服务镜像（FastAPI + LangGraph + 前端页面）
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ECCS 客服 Agent 后端（FastAPI）。
+"""SellPilot Agent 后端（FastAPI）。
 
 职责：
 1. 启动本地 Web 服务，同一端口托管 `ui/` 静态页面（浏览器打开即可用）；
@@ -33,7 +33,7 @@ from memory import agent_session_id, get_short_term
 BASE_DIR = Path(__file__).resolve().parent
 HOST, PORT = config.HOST, config.PORT
 
-app = FastAPI(title="ECCS Agent", version="0.1.0")
+app = FastAPI(title="SellPilot Agent", version="0.1.0")
 
 # 本地演示：允许静态预览（python -m http.server 另起端口）跨域调用后端
 app.add_middleware(
@@ -224,5 +224,5 @@ app.mount("/", StaticFiles(directory=BASE_DIR / "ui", html=True), name="root")
 if __name__ == "__main__":
     import uvicorn
 
-    print(f"ECCS Agent 已启动 → http://{HOST}:{PORT}  （{service.supervisor().reason or 'LLM 模式'}）")
+    print(f"SellPilot Agent 已启动 → http://{HOST}:{PORT}  （{service.supervisor().reason or 'LLM 模式'}）")
     uvicorn.run(app, host=HOST, port=PORT)

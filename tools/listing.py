@@ -17,7 +17,7 @@ registry = LocalRegistry("tools.listing")
 # 标题 / 关键词 / 五点 演示模板（真实版接 Listing 优化 AI 服务）
 _LISTING_DRAFT = {
     "云感耳机": {
-        "brand": "ECCS",
+        "brand": "SellPilot",
         "core": "Wireless Earbuds with ANC",
         "attrs": "HiFi Stereo / 36H Playtime / IPX5",
         "scene": "for Sports & Commuting",
@@ -39,7 +39,7 @@ def _draft_for(product_name: str) -> dict:
             return draft
     # 未命中模板：用通用构件兜底（结果可继续人工修改）
     return {
-        "brand": "ECCS",
+        "brand": "SellPilot",
         "core": (product_name or "Product").strip(),
         "attrs": "High Quality / Durable / Easy to Use",
         "scene": "for Daily Use",

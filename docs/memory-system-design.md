@@ -1,7 +1,7 @@
-# ECCS Agent 记忆系统开发文档
+# SellPilot Agent 记忆系统开发文档
 
 > 版本：v0.1（设计稿）
-> 适用范围：ECCS-Agent 项目的 memory/ 与 agents/ 模块改造
+> 适用范围：SellPilot_Agent 项目的 memory/ 与 agents/ 模块改造
 > 状态：方案定稿，待开发
 
 ---

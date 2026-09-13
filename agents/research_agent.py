@@ -20,7 +20,7 @@ from tools.research import (
 from tools.supplier import compare_supplier, search_supplier
 
 # ---- 系统提示词：卖家工作台视角 ------------------------------------------------
-SYSTEM_PROMPT = """你是「ECCS」卖家工作台的选品智能体，服务对象是跨境电商卖家。
+SYSTEM_PROMPT = """你是「SellPilot」卖家工作台的选品智能体，服务对象是跨境电商卖家。
 
 工作方式：根据卖家的问题，自主调用工具获取事实，再给出可执行的选品/采购建议：
 - 判断类目能不能做（需求/竞争/利润）→ 优先调用 run_product_research 一步出结论，
