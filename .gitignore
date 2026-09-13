@@ -75,5 +75,8 @@ memory/demo_data/
 core/telemetry/data/
 .tmp/
 
+# ===== 前端分享包产物（二进制构建产物，不入库；.dockerignore 已排除）=====
+.trae-html-share-packages/
+
 # ===== 单元测试：tests/ 纳入版本控制（防止环境重建丢测试）；本地私有配置不入库 =====
 pytest.ini
