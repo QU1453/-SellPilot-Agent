@@ -75,6 +75,5 @@ memory/demo_data/
 core/telemetry/data/
 .tmp/
 
-# ===== 单元测试（仅本地运行，不入库）=====
-tests/
+# ===== 单元测试：tests/ 纳入版本控制（防止环境重建丢测试）；本地私有配置不入库 =====
 pytest.ini
