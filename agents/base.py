@@ -19,6 +19,7 @@ from __future__ import annotations
 import functools
 import inspect
 
+import config
 from config import MODEL_ID
 from core.cognition.react import (  # ReAct 引擎提炼到认知层（思考推理），此处薄封装重导出
     _HAS_LANGGRAPH,
@@ -156,7 +157,9 @@ class ReActAgentBase:
             self.reason = "未安装 langgraph/langchain-openai，运行于本地规则兜底模式"
             return
         try:
-            llm = ChatOpenAI(model=model, api_key=api_key, base_url=base_url or None, temperature=0.3)
+            # 温度取运行时配置（网页「设置」可调；reload 后按新值重建）
+            llm = ChatOpenAI(model=model, api_key=api_key, base_url=base_url or None,
+                             temperature=config.LLM_TEMPERATURE)
             # 多轮记忆：memory/ 提供的 checkpointer 按 thread_id 隔离会话；
             # 压缩器注入同一 llm，超阈值裁剪时滚动摘要会回流进线程（不丢上下文）；
             # prompt 用动态 callable：长期记忆/日语提示每轮重建，不进 checkpoint 历史

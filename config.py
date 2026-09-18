@@ -35,6 +35,9 @@ BASE_URL: str = os.getenv("OPENAI_BASE_URL", "").strip() or _DEFAULT_BASE_URL
 # 模型 ID：本项目默认 GLM-5.3-Flash（智谱开放平台），兼容 OpenAI 协议
 MODEL_ID: str = os.getenv("OPENAI_MODEL", "glm-5.3-flash").strip() or "glm-5.3-flash"
 
+# 采样温度：0 最确定（选品/合规这类判定建议低值），越高越发散
+LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+
 # ===== 服务配置 =====
 HOST: str = os.getenv("SERVER_HOST", "127.0.0.1")
 PORT: int = int(os.getenv("SERVER_PORT", "8623"))
@@ -46,7 +49,8 @@ SHORT_TERM_CONVERSATIONS: int = int(os.getenv("SHORT_TERM_CONVERSATIONS", "5"))
 # 每 M 个谈话触发一次二级总结（滚动合并进长期记忆）
 L2_SUMMARY_INTERVAL: int = int(os.getenv("L2_SUMMARY_INTERVAL", "5"))
 
-# 窗口组装 token 上限：超限按最新优先丢最旧谈话原文（绝不丢一级总结）
+# 单次请求 token 预算（= 窗口组装上限）：超限按最新优先丢最旧谈话原文（绝不丢一级总结）；
+# 同时作为上下文五段分配的基数（见下方 BUDGET_PCT_*），可在网页「设置」里调
 CONTEXT_TOKEN_GUARD: int = int(os.getenv("CONTEXT_TOKEN_GUARD", "24000"))
 
 # 状态记忆（死规则）注入开关：False 时不再向 LLM 上下文注入铁律块
@@ -111,8 +115,31 @@ TOOL_LOOP_IDENTICAL_WINDOW: int = int(os.getenv("TOOL_LOOP_IDENTICAL_WINDOW", "1
 # 单会话 token 总预算（输入+输出累计，超出后 LLM 熔断转离线答复）
 SESSION_TOKEN_BUDGET: int = int(os.getenv("SESSION_TOKEN_BUDGET", "100000"))
 
-# 单会话金额预算（元；0 = 不启用金额熔断）
-SESSION_COST_BUDGET_CNY: float = float(os.getenv("SESSION_COST_BUDGET_CNY", "0"))
+# 单会话累计金额上限：值 + 币种（CNY / USD）；0 = 不启用金额熔断
+# 账单单价（PRICE_*_CNY_PER_M）是人民币口径，故 USD 预算按 USD_CNY_RATE 折算后比较
+SESSION_COST_BUDGET: float = float(os.getenv("SESSION_COST_BUDGET", "0"))
+SESSION_COST_BUDGET_CUR: str = (os.getenv("SESSION_COST_BUDGET_CUR", "CNY").strip().upper() or "CNY")
+
+# 美元 → 人民币汇率（只用于把 USD 口径预算折算成 CNY 与账单对齐，可按需修改）
+USD_CNY_RATE: float = float(os.getenv("USD_CNY_RATE", "7.2"))
+
+
+def to_cny(value: float, currency: str = "CNY") -> float:
+    """把金额按币种归一到 CNY 口径。"""
+    return float(value) * USD_CNY_RATE if str(currency).upper() == "USD" else float(value)
+
+
+def apply_cost_budget(value: float, currency: str = "CNY") -> float:
+    """设定累计金额上限（值 + 币种），同步归一后的 CNY 生效值（预算守卫读它）。"""
+    global SESSION_COST_BUDGET, SESSION_COST_BUDGET_CUR, SESSION_COST_BUDGET_CNY
+    SESSION_COST_BUDGET = max(0.0, float(value))
+    SESSION_COST_BUDGET_CUR = "USD" if str(currency).upper() == "USD" else "CNY"
+    SESSION_COST_BUDGET_CNY = to_cny(SESSION_COST_BUDGET, SESSION_COST_BUDGET_CUR)
+    return SESSION_COST_BUDGET_CNY
+
+
+# 生效金额预算（CNY 口径，预算守卫直接读；由上面两个槽位归一而来）
+SESSION_COST_BUDGET_CNY: float = to_cny(SESSION_COST_BUDGET, SESSION_COST_BUDGET_CUR)
 
 # 计费单价（元 / 百万 token）：按智谱账单实际价格填写，默认 0 = 只按 token 熔断
 PRICE_INPUT_CNY_PER_M: float = float(os.getenv("PRICE_INPUT_CNY_PER_M", "0"))

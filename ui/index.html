@@ -149,6 +149,41 @@
         <label for="setModel" data-i18n="setModel">模型 ID</label>
         <input id="setModel" type="text" placeholder="glm-5.3-flash" spellcheck="false">
       </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="setTemp" data-i18n="setTemp">温度 temperature</label>
+          <input id="setTemp" type="number" step="0.1" min="0" max="2" inputmode="decimal" placeholder="0.3">
+        </div>
+        <div class="field">
+          <label for="setPerm" data-i18n="setPerm">权限模式</label>
+          <select id="setPerm">
+            <option value="plan" data-i18n="permPlan">plan · 只读</option>
+            <option value="ask" data-i18n="permAsk">ask · 写操作需确认</option>
+            <option value="accept" data-i18n="permAccept">accept · 低风险自动放行</option>
+            <option value="bypass" data-i18n="permBypass">bypass · 完全放开</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="setCallBudget" data-i18n="setCallBudget">单次 token 预算</label>
+          <input id="setCallBudget" type="number" step="1000" min="0" inputmode="numeric" placeholder="24000">
+        </div>
+        <div class="field">
+          <label for="setCost" data-i18n="setCost">累计金额上限（单会话）</label>
+          <div class="input-group">
+            <input id="setCost" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0">
+            <select id="setCostCur">
+              <option value="CNY">CNY ¥</option>
+              <option value="USD">USD $</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <small class="field-note" id="setCostNote"></small>
+
       <label class="check-field">
         <input type="checkbox" id="setPersist">
         <span data-i18n="setPersist">写入本机 .env（重启后仍生效）</span>

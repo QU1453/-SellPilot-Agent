@@ -43,9 +43,15 @@ const I18N = {
     greet: "这里是<b>{name}</b>模块。左侧填好参数点「开始分析」，或直接在下方输入框里说需求。",
     settingsTitle: "运行时配置",
     setKey: "API Key", setUrl: "请求地址（Base URL）", setModel: "模型 ID",
+    setTemp: "温度 temperature", setPerm: "权限模式",
+    permPlan: "plan · 只读", permAsk: "ask · 写操作需确认",
+    permAccept: "accept · 低风险自动放行", permBypass: "bypass · 完全放开",
+    setCallBudget: "单次 token 预算", setCost: "累计金额上限（单会话）",
+    setCostNote: r => `0 = 不启用金额熔断。USD 按 1 USD ≈ ${r} CNY 折算成人民币与账单对齐。`,
     setPersist: "写入本机 .env（重启后仍生效）", setTest: "测试连接", setSave: "保存并应用",
     setKeyNone: "当前未配置密钥（本地演示模式）",
     setKeyMasked: k => `当前已配置：${k}（留空则保持不变）`,
+    keyOk: " · 连接测试已通过", keyBad: " · 上次连接测试失败", keyUnverified: " · 尚未验证",
     saveNone: "没有需要更新的内容。",
     saveOk: (n, p) => `已更新 ${n} 项${p ? "，并写入本机 .env" : "（仅本次运行有效）"}。`,
     saveFail: "保存失败：",
@@ -54,6 +60,7 @@ const I18N = {
     testFail: "连接失败：",
     statusLive: m => `GLM 在线 · ${m}`,
     statusLocal: "本地演示模式", statusDown: "后端未连接",
+    statusUnverified: "GLM 已配置 · 待验证", statusKeyBad: "密钥校验失败",
     card: {
       verdict: "选品结论", score: "四步得分", passed: "通过", failed: "未通过",
       supplier: "供应商对比", recommend: "综合推荐", moq: "起订量", unitPrice: "单价", lead: "交期",
@@ -88,9 +95,15 @@ const I18N = {
     greet: "こちらは<b>{name}</b>モジュールです。左のフォームで実行するか、下の入力欄から直接どうぞ。",
     settingsTitle: "ランタイム設定",
     setKey: "API Key", setUrl: "リクエスト先（Base URL）", setModel: "モデル ID",
+    setTemp: "温度 temperature", setPerm: "権限モード",
+    permPlan: "plan · 読み取り専用", permAsk: "ask · 書き込みは要確認",
+    permAccept: "accept · 低リスクは自動許可", permBypass: "bypass · 全開放",
+    setCallBudget: "1回あたり token 予算", setCost: "累計金額上限（1セッション）",
+    setCostNote: r => `0 = 金額ブレーキ無効。USD は 1 USD ≈ ${r} CNY で人民元換算し、請求と突き合わせます。`,
     setPersist: "ローカルの .env に保存（再起動後も有効）", setTest: "接続テスト", setSave: "保存して適用",
     setKeyNone: "キー未設定（ローカルデモモード）",
     setKeyMasked: k => `設定済み：${k}（空欄なら変更しません）`,
+    keyOk: " · 接続テスト済み", keyBad: " · 前回の接続テストに失敗", keyUnverified: " · 未検証",
     saveNone: "更新する項目がありません。",
     saveOk: (n, p) => `${n} 件を更新しました${p ? "（.env に保存）" : "（今回の実行のみ有効）"}。`,
     saveFail: "保存に失敗：",
@@ -99,6 +112,7 @@ const I18N = {
     testFail: "接続失敗：",
     statusLive: m => `GLM オンライン · ${m}`,
     statusLocal: "ローカルデモモード", statusDown: "バックエンド未接続",
+    statusUnverified: "GLM 設定済み · 未検証", statusKeyBad: "キー検証に失敗",
     card: {
       verdict: "選品結論", score: "4段階スコア", passed: "合格", failed: "不合格",
       supplier: "仕入れ先比較", recommend: "総合おすすめ", moq: "最小ロット", unitPrice: "単価", lead: "納期",
@@ -588,6 +602,15 @@ function openModal() { modal.classList.add("is-open"); modal.setAttribute("aria-
 function closeModal() { modal.classList.remove("is-open"); modal.setAttribute("aria-hidden", "true"); }
 function msg(text, kind = "") { setMsg.className = `modal-msg ${kind}`; setMsg.textContent = text; }
 
+/* 密钥状态说明：已配置 + 连接测试结论（未验证 / 通过 / 失败） */
+function keyNoteText(j) {
+  if (!j.api_key_set) return L().setKeyNone;
+  const base = L().setKeyMasked(j.api_key_masked);
+  if (j.key_verified === true) return base + L().keyOk;
+  if (j.key_verified === false) return base + L().keyBad;
+  return base + L().keyUnverified;
+}
+
 async function openSettings() {
   msg("");
   $("#setKey").value = "";
@@ -596,7 +619,13 @@ async function openSettings() {
     const j = await res.json();
     $("#setUrl").value = j.base_url || "";
     $("#setModel").value = j.model || "";
-    $("#setKeyNow").textContent = j.api_key_set ? L().setKeyMasked(j.api_key_masked) : L().setKeyNone;
+    $("#setTemp").value = j.temperature ?? "";
+    $("#setPerm").value = j.permission_mode || "plan";
+    $("#setCallBudget").value = j.call_token_budget ?? "";
+    $("#setCost").value = j.cost_budget ?? 0;
+    $("#setCostCur").value = j.cost_currency || "CNY";
+    $("#setCostNote").textContent = L().setCostNote(j.usd_cny_rate);
+    $("#setKeyNow").textContent = keyNoteText(j);
   } catch (e) {
     $("#setKeyNow").textContent = L().statusDown;
   }
@@ -609,20 +638,31 @@ async function saveSettings() {
   const k = $("#setKey").value.trim();
   const u = $("#setUrl").value.trim();
   const m = $("#setModel").value.trim();
+  const t = $("#setTemp").value.trim();
+  const cb = $("#setCallBudget").value.trim();
+  const cost = $("#setCost").value.trim();
   if (k) body.api_key = k;
   if (u) body.base_url = u;
   if (m) body.model = m;
+  if (t !== "") body.temperature = Number(t);
+  if (cb !== "") body.call_token_budget = Number(cb);
+  if (cost !== "") { body.cost_budget = Number(cost); body.cost_currency = $("#setCostCur").value; }
+  body.permission_mode = $("#setPerm").value;
   msg("…");
   try {
     const res = await fetch("/api/settings", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
     });
     const j = await res.json();
+    if (j.errors && j.errors.length) { msg(j.errors.join("；"), "is-bad"); return; }
     if (!j.changed || !j.changed.length) { msg(L().saveNone); return; }
     msg(L().saveOk(j.changed.length, j.persisted), "is-ok");
     $("#setKey").value = "";
-    $("#setKeyNow").textContent = (j.status && j.status.api_key_set)
-      ? L().setKeyMasked(j.status.api_key_masked) : L().setKeyNone;
+    $("#setKeyNow").textContent = keyNoteText({
+      api_key_set: j.status.api_key_set,
+      api_key_masked: j.status.api_key_masked,
+      key_verified: j.status.key_verified,
+    });
     applyStatus(j.status);
   } catch (e) {
     msg(L().saveFail + e.message, "is-bad");
@@ -631,12 +671,25 @@ async function saveSettings() {
 
 async function testSettings() {
   const btn = $("#setTest");
+  // 带上表单当前填的值：可以「先填 Key 再点测试」，不必先保存
+  const body = {};
+  const k = $("#setKey").value.trim();
+  const u = $("#setUrl").value.trim();
+  const m = $("#setModel").value.trim();
+  if (k) body.api_key = k;
+  if (u) body.base_url = u;
+  if (m) body.model = m;
   btn.disabled = true; msg(L().testing);
   try {
-    const res = await fetch("/api/settings/test", { method: "POST" });
+    const res = await fetch("/api/settings/test", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    });
     const j = await res.json();
     if (j.ok) msg(L().testOk(j.model) + (j.echo ? ` · echo: ${j.echo}` : ""), "is-ok");
     else msg(L().testFail + (j.error || ""), "is-bad");
+    await refreshStatus();
+    const g = await (await fetch("/api/settings")).json();
+    $("#setKeyNow").textContent = keyNoteText(g);
   } catch (e) {
     msg(L().testFail + e.message, "is-bad");
   } finally { btn.disabled = false; }
@@ -645,14 +698,27 @@ async function testSettings() {
 /* ---------- 运行状态 ---------- */
 function applyStatus(st) {
   const pill = $("#statusPill"), txt = $("#statusText");
-  if (!st) { pill.className = "status-pill"; txt.textContent = L().statusDown; return; }
-  if (st.mode === "llm") {
-    pill.className = "status-pill is-live";
-    txt.textContent = L().statusLive(st.model || st.configured_model || "LLM");
-  } else {
+  if (!st) { pill.className = "status-pill"; pill.title = ""; txt.textContent = L().statusDown; return; }
+  if (!st.api_key_set) {                     // 没配密钥 → 本地兜底
     pill.className = "status-pill is-local";
     txt.textContent = L().statusLocal;
+    pill.title = st.reason || "";
+    return;
   }
+  if (st.key_verified === true) {            // 配了密钥且连接测试通过
+    pill.className = "status-pill is-live";
+    txt.textContent = L().statusLive(st.model || st.configured_model || "LLM");
+    pill.title = "";
+    return;
+  }
+  if (st.key_verified === false) {           // 配了密钥但测试失败
+    pill.className = "status-pill is-bad";
+    txt.textContent = L().statusKeyBad;
+    pill.title = st.key_error || "";
+    return;
+  }
+  pill.className = "status-pill is-warn";    // 配了密钥但还没验证过
+  txt.textContent = L().statusUnverified;
   pill.title = st.reason || "";
 }
 

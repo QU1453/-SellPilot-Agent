@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -73,7 +74,27 @@ class SettingsRequest(BaseModel):
     api_key: str | None = None
     base_url: str | None = None
     model: str | None = None
+    temperature: float | None = None           # 采样温度 0~2
+    permission_mode: str | None = None         # plan / ask / accept / bypass
+    call_token_budget: int | None = None       # 单次请求 token 预算
+    cost_budget: float | None = None           # 单会话累计金额上限
+    cost_currency: str | None = None           # CNY / USD
     persist: bool = False   # True = 同时写入本机 .env（重启后仍生效；.env 不入库不进镜像）
+
+
+class TestSettingsRequest(BaseModel):
+    """连接测试：优先测表单里当前填的值，未填则回落到已保存配置。
+
+    —— 这样「先填 Key 再点测试」就能立刻验证，不必先保存。
+    """
+
+    api_key: str | None = None
+    base_url: str | None = None
+    model: str | None = None
+
+
+PERMISSION_MODES = ("plan", "ask", "accept", "bypass")
+CURRENCIES = ("CNY", "USD")
 
 
 def mask_key(key: str | None) -> str:
@@ -85,14 +106,25 @@ def mask_key(key: str | None) -> str:
     return f"{key[:4]}{'•' * 6}{key[-4:]}"
 
 
+def config_fingerprint(api_key: str | None, base_url: str | None, model: str | None) -> str:
+    """LLM 配置指纹：用于判断上一次连接测试结果是否仍适用于当前配置。"""
+    raw = f"{api_key or ''}|{base_url or ''}|{model or ''}"
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()[:12]
+
+
 def persist_env(pairs: dict[str, str]) -> None:
-    """把设置写回本机 .env（逐行 upsert，保留其它配置；.env 已被 git/docker 双重拦截）。"""
+    """把设置写回本机 .env（逐行 upsert，保留其它配置；.env 已被 git/docker 双重拦截）。
+
+    匹配时会忽略行首的「#」，所以像 `# GLM_API=` 这样的注释占位行会被就地替换，
+    不会重复追加同名的键。
+    """
     path = BASE_DIR / ".env"
     lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
     out: list[str] = []
     seen: set[str] = set()
     for line in lines:
-        key = line.split("=", 1)[0].strip() if "=" in line and not line.lstrip().startswith("#") else ""
+        bare = line.lstrip().lstrip("#").strip()
+        key = bare.split("=", 1)[0].strip() if "=" in bare else ""
         if key in pairs:
             out.append(f"{key}={pairs[key]}")
             seen.add(key)
@@ -113,6 +145,8 @@ class AgentService:
     def __init__(self) -> None:
         self._supervisor: Supervisor | None = None
         self._orchestrator: Orchestrator | None = None
+        # 最近一次连接测试结果（含配置指纹；指纹不匹配即视为未验证）
+        self._verify: dict | None = None
 
     def supervisor(self) -> Supervisor:
         if self._supervisor is None:
@@ -131,9 +165,31 @@ class AgentService:
         self._supervisor = None
         self._orchestrator = None
 
+    def record_verification(self, ok: bool, error: str | None,
+                            fingerprint: str) -> None:
+        """记录一次连接测试结果（带配置指纹）。"""
+        self._verify = {"ok": bool(ok), "error": error, "fp": fingerprint}
+
+    def verification(self) -> tuple[bool | None, str | None]:
+        """当前配置的验证状态：None=未验证 / True=通过 / False=失败。
+
+        配置（Key / 地址 / 模型）一变，旧结果立即作废——避免"改了密钥还显示在线"。
+        """
+        v = self._verify
+        if not v:
+            return None, None
+        if v["fp"] != config_fingerprint(config.API_KEY, config.BASE_URL, config.MODEL_ID):
+            return None, None
+        return v["ok"], v["error"]
+
     def status(self) -> dict:
-        """当前运行状态（密钥只回传布尔与脱敏串，绝不回传明文）。"""
+        """当前运行状态（密钥只回传布尔与脱敏串，绝不回传明文）。
+
+        mode/agent 只表示「是否配好了 LLM」，不代表密钥可用；
+        密钥是否真的能连通，看 key_verified（需先做一次连接测试）。
+        """
         sup = self.supervisor()
+        verified, verify_error = self.verification()
         return {
             "ok": True,
             "agent": sup.available,
@@ -145,6 +201,8 @@ class AgentService:
             "specialists": sorted(sup.specialists.keys()),
             "api_key_set": bool(config.API_KEY),
             "api_key_masked": mask_key(config.API_KEY),
+            "key_verified": verified,
+            "key_error": verify_error,
             "permission_mode": config.AGENT_PERMISSION_MODE,
         }
 
@@ -188,18 +246,29 @@ async def status() -> dict:
     return service.status()
 
 
-# ===== 设置 API（前端「设置」面板的数据源：密钥 / 请求地址 / 模型 ID）=====
+# ===== 设置 API（前端「设置」面板的数据源：密钥 / 地址 / 模型 / 温度 / 权限 / 预算）=====
 @app.get("/api/settings")
 async def get_settings() -> dict:
     """当前设置（密钥脱敏）；更新前先读，表单只提交要改的字段。"""
+    verified, verify_error = service.verification()
     return {
         "ok": True,
         "api_key_set": bool(config.API_KEY),
         "api_key_masked": mask_key(config.API_KEY),
         "api_key_from_env": bool(os.getenv("GLM_API") or os.getenv("OPENAI_API_KEY")),
+        "key_verified": verified,
+        "key_error": verify_error,
         "base_url": config.BASE_URL,
         "model": config.MODEL_ID,
+        "temperature": config.LLM_TEMPERATURE,
         "permission_mode": config.AGENT_PERMISSION_MODE,
+        "permission_modes": list(PERMISSION_MODES),
+        "call_token_budget": config.CONTEXT_TOKEN_GUARD,
+        "cost_budget": config.SESSION_COST_BUDGET,
+        "cost_currency": config.SESSION_COST_BUDGET_CUR,
+        "cost_budget_cny": config.SESSION_COST_BUDGET_CNY,
+        "currencies": list(CURRENCIES),
+        "usd_cny_rate": config.USD_CNY_RATE,
     }
 
 
@@ -207,22 +276,93 @@ async def get_settings() -> dict:
 async def update_settings(req: SettingsRequest) -> JSONResponse:
     """运行时更新配置并热重建智能体（空字段保持不变）；可选写回本机 .env。
 
-    安全约定：只接收、不回显；写入 .env 的文件已被 .gitignore / .dockerignore 双重拦截。
+    校验通过才落盘：任何一项不合法则整体不生效（避免"一半改了一半没改"）。
     """
     changed: list[str] = []
+    errors: list[str] = []
     env_pairs: dict[str, str] = {}
-    if req.api_key is not None and req.api_key.strip():
-        config.API_KEY = req.api_key.strip()
-        env_pairs["GLM_API"] = config.API_KEY
-        changed.append("api_key")
-    if req.base_url is not None and req.base_url.strip():
-        config.BASE_URL = req.base_url.strip()
-        env_pairs["OPENAI_BASE_URL"] = config.BASE_URL
-        changed.append("base_url")
-    if req.model is not None and req.model.strip():
-        config.MODEL_ID = req.model.strip()
-        env_pairs["OPENAI_MODEL"] = config.MODEL_ID
-        changed.append("model")
+    updates: list[tuple[str, object]] = []   # (设置名, setter) —— 校验通过后统一应用
+
+    # ---- 第一步：只校验，不写 ----
+    key = (req.api_key or "").strip()
+    if key:
+        # 常见误填：把请求地址贴进了密钥槽（会导致"显示在线但每次 401"）
+        if "://" in key or key.lower().startswith(("http", "www.")):
+            errors.append("API Key 看起来是一个网址，请填密钥；网址应填在「请求地址」里")
+        else:
+            updates.append(("api_key", key))
+    url = (req.base_url or "").strip()
+    if url:
+        if "://" not in url:
+            errors.append("请求地址需要是完整 URL（含 http:// 或 https://）")
+        else:
+            updates.append(("base_url", url))
+    model = (req.model or "").strip()
+    if model:
+        updates.append(("model", model))
+
+    temperature = None
+    if req.temperature is not None:
+        temperature = min(2.0, max(0.0, float(req.temperature)))
+        updates.append(("temperature", temperature))
+
+    mode = (req.permission_mode or "").strip().lower()
+    if mode:
+        if mode not in PERMISSION_MODES:
+            errors.append(f"权限模式只能是 {'/'.join(PERMISSION_MODES)}")
+        else:
+            updates.append(("permission_mode", mode))
+
+    if req.call_token_budget is not None:
+        if int(req.call_token_budget) <= 0:
+            errors.append("单次 token 预算需为正整数")
+        else:
+            updates.append(("call_token_budget", int(req.call_token_budget)))
+
+    cost_value = currency = None
+    if req.cost_budget is not None:
+        currency = (req.cost_currency or config.SESSION_COST_BUDGET_CUR).strip().upper()
+        if currency not in CURRENCIES:
+            errors.append(f"币种只能是 {'/'.join(CURRENCIES)}")
+        else:
+            cost_value = max(0.0, float(req.cost_budget))
+
+    if errors:
+        return JSONResponse({"ok": False, "changed": [], "errors": errors,
+                             "persisted": False, "status": service.status()})
+
+    # ---- 第二步：应用（此时已确定无校验错误）----
+    for name, value in updates:
+        if name == "api_key":
+            config.API_KEY = value
+            env_pairs["GLM_API"] = value
+            changed.append(name)
+        elif name == "base_url":
+            config.BASE_URL = value
+            env_pairs["OPENAI_BASE_URL"] = value
+            changed.append(name)
+        elif name == "model":
+            config.MODEL_ID = value
+            env_pairs["OPENAI_MODEL"] = value
+            changed.append(name)
+        elif name == "temperature":
+            config.LLM_TEMPERATURE = value
+            env_pairs["LLM_TEMPERATURE"] = str(value)
+            changed.append(name)
+        elif name == "permission_mode":
+            config.AGENT_PERMISSION_MODE = value
+            env_pairs["AGENT_PERMISSION_MODE"] = value
+            changed.append(name)
+        elif name == "call_token_budget":
+            config.CONTEXT_TOKEN_GUARD = value
+            env_pairs["CONTEXT_TOKEN_GUARD"] = str(value)
+            changed.append(name)
+
+    if cost_value is not None:
+        config.apply_cost_budget(cost_value, currency)
+        env_pairs["SESSION_COST_BUDGET"] = str(config.SESSION_COST_BUDGET)
+        env_pairs["SESSION_COST_BUDGET_CUR"] = config.SESSION_COST_BUDGET_CUR
+        changed.append("cost_budget")
 
     persisted = False
     if changed and req.persist:
@@ -234,26 +374,43 @@ async def update_settings(req: SettingsRequest) -> JSONResponse:
 
     service.reload()  # 下一次请求会用新配置重建 Supervisor / Orchestrator
     return JSONResponse({
-        "ok": True, "changed": changed, "persisted": persisted,
+        "ok": True, "changed": changed, "errors": [], "persisted": persisted,
         "status": service.status(),
     })
 
 
 @app.post("/api/settings/test")
-async def test_settings() -> JSONResponse:
-    """按当前配置做一次最小真实调用（验证密钥 / 地址 / 模型是否可用）。"""
-    if not config.API_KEY:
-        return JSONResponse({"ok": False, "error": "未配置 API Key"})
+async def test_settings(req: TestSettingsRequest | None = None) -> JSONResponse:
+    """做一次最小真实调用，验证 Key / 地址 / 模型是否可用。
+
+    优先用请求体里表单当前填的值（可不保存先验证），未填则回落到已保存配置。
+    """
+    api_key = (req.api_key or "").strip() if req else ""
+    base_url = (req.base_url or "").strip() if req else ""
+    model = (req.model or "").strip() if req else ""
+    key = api_key or config.API_KEY
+    url = base_url or config.BASE_URL
+    mid = model or config.MODEL_ID
+
+    fingerprint = config_fingerprint(key, url, mid)
+    if not key:
+        service.record_verification(False, "未配置 API Key", fingerprint)
+        return JSONResponse({"ok": False, "error": "未配置 API Key", "verified": False})
     try:
         from langchain_openai import ChatOpenAI
 
-        llm = ChatOpenAI(model=config.MODEL_ID, api_key=config.API_KEY,
-                         base_url=config.BASE_URL or None, temperature=0, max_tokens=16)
+        llm = ChatOpenAI(model=mid, api_key=key, base_url=url or None,
+                         temperature=config.LLM_TEMPERATURE, max_tokens=16, timeout=20)
         resp = llm.invoke("ping")
-        return JSONResponse({"ok": True, "model": config.MODEL_ID,
-                             "echo": str(getattr(resp, "content", ""))[:60]})
+        service.record_verification(True, None, fingerprint)
+        return JSONResponse({
+            "ok": True, "model": mid, "verified": True,
+            "echo": str(getattr(resp, "content", ""))[:60],
+        })
     except Exception as exc:  # noqa: BLE001 - 测试失败属预期路径，回传错误文本给前端
-        return JSONResponse({"ok": False, "error": f"{exc.__class__.__name__}: {exc}"[:300]})
+        error = f"{exc.__class__.__name__}: {exc}"[:300]
+        service.record_verification(False, error, fingerprint)
+        return JSONResponse({"ok": False, "error": error, "verified": False})
 
 
 @app.post("/api/ask")
