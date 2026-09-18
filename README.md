@@ -1,8 +1,9 @@
-# SellPilot Agent
+# Quote Agent
 
 **跨境卖家「选品 → 上架」智能体（日本市场）** — 对应《电商流程与进销存管理表》的 **第三部分（选品）+ 第四部分（Listing 创建与上架）**：自动寻找热销品与供应商、生成并上架 Listing。
 
-> 大学生创新创业大赛项目 · SellPilot_Agent（跨境卖家自动选品与上架智能体）
+> 大学生创新创业大赛项目 · Quote_Agent（跨境卖家自动选品与上架智能体）
+> 仓库：https://github.com/QU1453/Quote_Agent
 
 ---
 

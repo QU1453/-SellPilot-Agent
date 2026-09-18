@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-09-18 · 项目更名为 Quote_Agent
+
+- GitHub 仓库更名为 **`Quote_Agent`**：https://github.com/QU1453/Quote_Agent
+  （上一形态为 `-SellPilot-Agent`，开头多一个连字符；再往前是 `ECCS-Agent`）
+- 本地 `origin` 已指向新地址并验证连通（`git ls-remote` 可通，旧名仍由 GitHub 重定向）
+- 文档侧项目名同步为 **Quote Agent / Quote_Agent**：`README.md`、`docs/architecture.md`、`docs/memory-system-design.md`、`.trae/documents/ecss-architecture-implementation-plan.md`、`.trae/documents/安装所有依赖.md`
+
+> **注意**：本次只改了**仓库名与文档**。应用内部的品牌标识仍是 `SellPilot`
+> —— 界面标题、`SellPilot.spec`、可执行文件名 `dist/SellPilot`、日志文案等均未改动。
+> 若要连应用一起更名，需另行处理（见下）。
+
+### 如需完整更名（尚未执行）
+
+| 位置 | 现状 | 需改为 |
+| --- | --- | --- |
+| `ui/app.js` | `docTitle` / `brandSub` / `agent` 等文案 | Quote / Quote Agent |
+| `SellPilot.spec` + `build.py` | 产物名 `SellPilot` / `SellPilot.exe` | `Quote` / `Quote.exe` |
+| `server.py` | `FastAPI(title="SellPilot Agent")`、启动提示 | Quote Agent |
+| `config.py` | `MCP_SERVER_NAME = "sellpilot-tool-server"` | quote-tool-server |
+| `main.py` | `WINDOW_TITLE` | Quote Agent |
+
+---
+
 ## 2026-09-18 · 桌面版 + 浅色高雅重设计
 
 **本轮起点（回滚目标）**：`bb01e0e` —— 深色「港口仪表盘」界面 + 完整设置面板（密钥/地址/模型/温度/权限/预算）
@@ -79,6 +102,8 @@ rm -rf build dist && python build.py
 
 | 提交 | 说明 |
 | --- | --- |
-| `bb01e0e` | 深色「港口仪表盘」界面 + 完整运行时设置面板（本轮回滚目标） |
+| （仓库名） | `ECCS-Agent` → `-SellPilot-Agent` → **`Quote_Agent`**，最后一次更名见本文档顶部 |
+| `af561d4` | 桌面版入口 + 单文件打包 + 界面改为浅色「白瓷与细金」 |
+| `bb01e0e` | 深色「港口仪表盘」界面 + 完整运行时设置面板（上一形态，可作回滚目标） |
 | `ed57e4c` | 智能体项目配置与 Git 安全 |
 | `9c14866` | 品牌重塑 ECCS → SellPilot（仓库更名 SellPilot_Agent） |

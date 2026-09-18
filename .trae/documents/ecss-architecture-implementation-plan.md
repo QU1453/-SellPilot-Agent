@@ -1,4 +1,4 @@
-# SellPilot Agent 架构开发实施计划
+# Quote Agent 架构开发实施计划
 
 > 依据：[architecture.md](/workspace/docs/architecture.md) + [memory-system-design.md](/workspace/docs/memory-system-design.md)
 > 模式：分阶段实施（P0 → P8），每阶段独立可验证，全部完成后一键推送。
