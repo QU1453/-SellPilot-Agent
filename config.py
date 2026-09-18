@@ -11,11 +11,27 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent
+
+def _app_dir() -> Path:
+    """可写数据目录：打包后取可执行文件所在目录（.env 随程序走），开发态取源码目录。"""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def _resource_dir() -> Path:
+    """只读资源目录：打包后是 PyInstaller 解包目录，开发态同源码目录。"""
+    return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+
+
+BASE_DIR = _app_dir()             # 可写：.env、运行期数据
+RESOURCE_DIR = _resource_dir()    # 只读：ui/ 等前端资源
+
 load_dotenv(BASE_DIR / ".env")  # 读取本地密钥配置（已被 .gitignore 拦截）
 
 # ===== LLM 配置槽（所有智能体共用，OpenAI 兼容协议）=====

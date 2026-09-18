@@ -20,8 +20,8 @@ function escapeHTML(s) {
 /* ---------- 多语言文案 ---------- */
 const I18N = {
   zh: {
-    docTitle: "SellPilot · 跨境选品与上架作战台",
-    brandSub: "跨境选品 · 上架作战台",
+    docTitle: "SellPilot · 跨境选品与上架工作台",
+    brandSub: "跨境选品 · 上架工作台",
     crumbHome: "总览", back: "返回总览",
     settings: "设置", debug: "调试后台",
     heroKicker: "OPERATIONS · SELECT → LIST",
@@ -72,7 +72,7 @@ const I18N = {
     }
   },
   ja: {
-    docTitle: "SellPilot · 越境セラー運用コンソール",
+    docTitle: "SellPilot · 越境セラー選品・出品コンソール",
     brandSub: "選品・出品コンソール",
     crumbHome: "全体", back: "全体へ戻る",
     settings: "設定", debug: "デバッグ",
@@ -755,8 +755,11 @@ function renderHome() {
   $$(".board").forEach(art => {
     const board = art.dataset.board;
     const cfg = BOARDS[board];
-    $(".mod-grid", art).innerHTML = cfg.modules.map(m => `
-      <button class="mod-card" type="button" data-board="${board}" data-mod="${m.key}">
+    // 逐条错峰入场：Listing 板整体延后一拍，形成左右次第展开的节奏
+    const base = board === "listing" ? 140 : 0;
+    $(".mod-grid", art).innerHTML = cfg.modules.map((m, i) => `
+      <button class="mod-card" type="button" data-board="${board}" data-mod="${m.key}"
+              style="animation-delay:${base + i * 55}ms">
         <span class="mod-no">${m.no}</span>
         <span class="mod-body"><b>${escapeHTML(tr(m.title))}</b><i>${escapeHTML(tr(m.desc))}</i></span>
         <span class="mod-go">→</span>

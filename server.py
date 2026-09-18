@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-from pathlib import Path
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +31,7 @@ from core.perception.session import start_conversation
 from core.telemetry import get_recorder
 from memory import agent_session_id, get_short_term
 
-BASE_DIR = Path(__file__).resolve().parent
+UI_DIR = config.RESOURCE_DIR / "ui"   # 打包后指向解包目录，开发态即 ./ui
 HOST, PORT = config.HOST, config.PORT
 
 app = FastAPI(title="SellPilot Agent", version="0.1.0")
@@ -46,7 +45,7 @@ app.add_middleware(
 )
 
 # 同一端口托管前端页面：/ui 前缀与根路径均可访问
-app.mount("/ui", StaticFiles(directory=BASE_DIR / "ui"), name="ui")
+app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
 
 
 class AskRequest(BaseModel):
@@ -117,8 +116,11 @@ def persist_env(pairs: dict[str, str]) -> None:
 
     匹配时会忽略行首的「#」，所以像 `# GLM_API=` 这样的注释占位行会被就地替换，
     不会重复追加同名的键。
+
+    路径取 config.BASE_DIR（打包后是 exe 所在目录），确保设置写在程序旁边、
+    不会随单文件解包的临时目录一起被清掉。
     """
-    path = BASE_DIR / ".env"
+    path = config.BASE_DIR / ".env"
     lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
     out: list[str] = []
     seen: set[str] = set()
@@ -490,12 +492,12 @@ async def telemetry_clear() -> dict:
 # 调试后台页面（独立静态页，不与主工作台共用路由）
 @app.get("/debug")
 async def debug_page() -> FileResponse:
-    return FileResponse(BASE_DIR / "ui" / "debug.html")
+    return FileResponse(UI_DIR / "debug.html")
 
 
 # 根路径挂载静态页（必须放在所有 API 路由之后，避免吞掉 /api/*）：
 # html=True 使 "/" 自动返回 index.html；style.css / app.js 等相对引用同源生效
-app.mount("/", StaticFiles(directory=BASE_DIR / "ui", html=True), name="root")
+app.mount("/", StaticFiles(directory=UI_DIR, html=True), name="root")
 
 
 if __name__ == "__main__":
