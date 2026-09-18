@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Query
@@ -66,6 +67,43 @@ class StartConversationRequest(BaseModel):
     user_id: str = "default"
 
 
+class SettingsRequest(BaseModel):
+    """运行时设置：只提交要改的字段（None/空串 = 保持不变）。"""
+
+    api_key: str | None = None
+    base_url: str | None = None
+    model: str | None = None
+    persist: bool = False   # True = 同时写入本机 .env（重启后仍生效；.env 不入库不进镜像）
+
+
+def mask_key(key: str | None) -> str:
+    """密钥脱敏展示：只留首 4 / 末 4 位，绝不回传完整密钥。"""
+    if not key:
+        return ""
+    if len(key) <= 8:
+        return "•" * len(key)
+    return f"{key[:4]}{'•' * 6}{key[-4:]}"
+
+
+def persist_env(pairs: dict[str, str]) -> None:
+    """把设置写回本机 .env（逐行 upsert，保留其它配置；.env 已被 git/docker 双重拦截）。"""
+    path = BASE_DIR / ".env"
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    out: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        key = line.split("=", 1)[0].strip() if "=" in line and not line.lstrip().startswith("#") else ""
+        if key in pairs:
+            out.append(f"{key}={pairs[key]}")
+            seen.add(key)
+        else:
+            out.append(line)
+    for k, v in pairs.items():
+        if k not in seen:
+            out.append(f"{k}={v}")
+    path.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
+
+
 class AgentService:
     """懒加载单例 Supervisor（多智能体主控）+ Orchestrator（认知层编排）。
 
@@ -87,6 +125,28 @@ class AgentService:
         if self._orchestrator is None:
             self._orchestrator = Orchestrator(self.supervisor())
         return self._orchestrator
+
+    def reload(self) -> None:
+        """丢弃已构建的 Supervisor / Orchestrator，下次请求按新配置重建（密钥热更新）。"""
+        self._supervisor = None
+        self._orchestrator = None
+
+    def status(self) -> dict:
+        """当前运行状态（密钥只回传布尔与脱敏串，绝不回传明文）。"""
+        sup = self.supervisor()
+        return {
+            "ok": True,
+            "agent": sup.available,
+            "mode": "llm" if sup.available else "local-fallback",
+            "model": sup.model if sup.available else None,
+            "configured_model": config.MODEL_ID,
+            "base_url": config.BASE_URL,
+            "reason": sup.reason,
+            "specialists": sorted(sup.specialists.keys()),
+            "api_key_set": bool(config.API_KEY),
+            "api_key_masked": mask_key(config.API_KEY),
+            "permission_mode": config.AGENT_PERMISSION_MODE,
+        }
 
     def ask(self, message: str, session_id: str, user_id: str) -> dict:
         """问答复用编排器：感知 → 上下文组装 → 路由 → 兜底 → 输出契约。"""
@@ -125,15 +185,75 @@ service = AgentService()
 
 @app.get("/api/status")
 async def status() -> dict:
-    sup = service.supervisor()
+    return service.status()
+
+
+# ===== 设置 API（前端「设置」面板的数据源：密钥 / 请求地址 / 模型 ID）=====
+@app.get("/api/settings")
+async def get_settings() -> dict:
+    """当前设置（密钥脱敏）；更新前先读，表单只提交要改的字段。"""
     return {
         "ok": True,
-        "agent": sup.available,
-        "mode": "llm" if sup.available else "local-fallback",
-        "model": sup.model if sup.available else None,
-        "reason": sup.reason,
-        "specialists": sorted(sup.specialists.keys()),
+        "api_key_set": bool(config.API_KEY),
+        "api_key_masked": mask_key(config.API_KEY),
+        "api_key_from_env": bool(os.getenv("GLM_API") or os.getenv("OPENAI_API_KEY")),
+        "base_url": config.BASE_URL,
+        "model": config.MODEL_ID,
+        "permission_mode": config.AGENT_PERMISSION_MODE,
     }
+
+
+@app.post("/api/settings")
+async def update_settings(req: SettingsRequest) -> JSONResponse:
+    """运行时更新配置并热重建智能体（空字段保持不变）；可选写回本机 .env。
+
+    安全约定：只接收、不回显；写入 .env 的文件已被 .gitignore / .dockerignore 双重拦截。
+    """
+    changed: list[str] = []
+    env_pairs: dict[str, str] = {}
+    if req.api_key is not None and req.api_key.strip():
+        config.API_KEY = req.api_key.strip()
+        env_pairs["GLM_API"] = config.API_KEY
+        changed.append("api_key")
+    if req.base_url is not None and req.base_url.strip():
+        config.BASE_URL = req.base_url.strip()
+        env_pairs["OPENAI_BASE_URL"] = config.BASE_URL
+        changed.append("base_url")
+    if req.model is not None and req.model.strip():
+        config.MODEL_ID = req.model.strip()
+        env_pairs["OPENAI_MODEL"] = config.MODEL_ID
+        changed.append("model")
+
+    persisted = False
+    if changed and req.persist:
+        try:
+            persist_env(env_pairs)
+            persisted = True
+        except Exception:  # noqa: BLE001 - 写盘失败不影响本次运行（仅提示未持久化）
+            persisted = False
+
+    service.reload()  # 下一次请求会用新配置重建 Supervisor / Orchestrator
+    return JSONResponse({
+        "ok": True, "changed": changed, "persisted": persisted,
+        "status": service.status(),
+    })
+
+
+@app.post("/api/settings/test")
+async def test_settings() -> JSONResponse:
+    """按当前配置做一次最小真实调用（验证密钥 / 地址 / 模型是否可用）。"""
+    if not config.API_KEY:
+        return JSONResponse({"ok": False, "error": "未配置 API Key"})
+    try:
+        from langchain_openai import ChatOpenAI
+
+        llm = ChatOpenAI(model=config.MODEL_ID, api_key=config.API_KEY,
+                         base_url=config.BASE_URL or None, temperature=0, max_tokens=16)
+        resp = llm.invoke("ping")
+        return JSONResponse({"ok": True, "model": config.MODEL_ID,
+                             "echo": str(getattr(resp, "content", ""))[:60]})
+    except Exception as exc:  # noqa: BLE001 - 测试失败属预期路径，回传错误文本给前端
+        return JSONResponse({"ok": False, "error": f"{exc.__class__.__name__}: {exc}"[:300]})
 
 
 @app.post("/api/ask")

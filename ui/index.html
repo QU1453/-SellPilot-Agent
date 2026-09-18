@@ -3,79 +3,165 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SellPilot 卖家工作台</title>
+<title>SellPilot · 跨境选品与上架作战台</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- 和纸纹理底 + 顶部暖帘装饰 -->
-  <div class="paper-grain" aria-hidden="true"></div>
-  <div class="noren" aria-hidden="true">
-    <span class="noren-notch"></span>
+<!-- 大气层：光晕 + 扫描线 + 工程网格，纯装饰 -->
+<div class="atmos" aria-hidden="true">
+  <span class="atmos-glow"></span>
+  <span class="atmos-grid"></span>
+  <span class="atmos-scan"></span>
+</div>
+
+<header class="topbar">
+  <button class="brand" id="brandBtn" type="button">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32"><path d="M3 21.5 12 5.5l3.8 7.6L19 8l10 13.5z"/><path d="M3 26h26"/></svg>
+    </span>
+    <span class="brand-text">
+      <b>SellPilot</b>
+      <i data-i18n="brandSub">跨境选品 · 上架作战台</i>
+    </span>
+  </button>
+
+  <nav class="crumb" id="crumb" aria-label="breadcrumb"></nav>
+
+  <div class="topbar-actions">
+    <span class="status-pill" id="statusPill" title="">
+      <i class="dot"></i><span id="statusText">…</span>
+    </span>
+    <button class="tool-btn" id="settingsBtn" type="button">
+      <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 13a7.7 7.7 0 0 0 0-2l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-1.7-1L15 3.6h-4l-.4 2.5c-.6.2-1.2.6-1.7 1l-2.3-1-2 3.4L6.6 11a7.7 7.7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1c.5.4 1.1.8 1.7 1l.4 2.5h4l.4-2.5c.6-.2 1.2-.6 1.7-1l2.3 1 2-3.4z"/></svg>
+      <span data-i18n="settings">设置</span>
+    </button>
+    <a class="tool-btn is-ghost" href="/debug" target="_blank" data-i18n="debug">调试后台</a>
+    <div class="lang-switch" role="group" aria-label="语言 / 言語">
+      <button id="langZH" class="lang-btn" type="button" aria-pressed="true">中</button>
+      <button id="langJA" class="lang-btn" type="button" aria-pressed="false">日</button>
+    </div>
   </div>
+</header>
 
-  <main class="chat" id="chat">
+<main id="app">
 
-    <header class="chat-head">
-      <div class="shop">
-        <div class="avatar">絵</div>
-        <div class="shop-meta">
-          <h1 data-i18n="title">SellPilot 卖家工作台</h1>
-          <p><span class="status"><i class="dot"></i><span data-i18n="status">在线 · 秒回</span></span></p>
+  <!-- ========== 总览：两条产线 ========== -->
+  <section class="view is-active" id="view-home">
+    <div class="hero">
+      <p class="hero-kicker" data-i18n="heroKicker">OPERATIONS · SELECT → LIST</p>
+      <h1 class="hero-title" data-i18n="heroTitle">两条产线，一次跑通</h1>
+      <p class="hero-lead" data-i18n="heroLead">选品解决「卖什么」，Listing 解决「怎么卖」。挑一个模块进入，或在模块里直接自由对话。</p>
+    </div>
+
+    <div class="boards">
+      <article class="board" data-board="research">
+        <header class="board-head">
+          <span class="board-no">01</span>
+          <div class="board-meta">
+            <h2 data-i18n="boardResearch">选品</h2>
+            <p data-i18n="boardResearchDesc">需求 · 竞争 · 利润 · 货源，四步筛出能赚钱的品。</p>
+          </div>
+          <span class="board-tag">SELECT</span>
+        </header>
+        <div class="mod-grid"></div>
+      </article>
+
+      <article class="board" data-board="listing">
+        <header class="board-head">
+          <span class="board-no">02</span>
+          <div class="board-meta">
+            <h2 data-i18n="boardListing">Listing</h2>
+            <p data-i18n="boardListingDesc">文案 · 图片 · 定价 · 履约，把品推上货架。</p>
+          </div>
+          <span class="board-tag">LIST</span>
+        </header>
+        <div class="mod-grid"></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ========== 模块控制台：左表单 + 右对话流 ========== -->
+  <section class="view" id="view-module">
+    <div class="console">
+      <aside class="console-form">
+        <div class="form-top">
+          <button class="back-btn" id="backBtn" type="button">
+            <svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg><span data-i18n="back">返回总览</span>
+          </button>
+          <span class="mod-badge" id="modBadge">1.1</span>
         </div>
-      </div>
+        <h2 class="form-title" id="modTitle">—</h2>
+        <p class="form-desc" id="modDesc">—</p>
+        <form id="modForm" autocomplete="off"></form>
+      </aside>
 
-      <div class="head-actions">
-        <!-- 结束本次谈话：触发一级总结管线 -->
-        <button class="txt-btn" id="endBtn" type="button" data-i18n="endTalk">结束谈话</button>
-        <!-- 调试后台入口（开发者用，不打扰主工作台） -->
-        <a class="txt-btn debug-link" href="/debug" target="_blank" title="智能体调试后台（工具调用 / token / 链路）">调试后台</a>
-        <button class="icon-btn" id="clearBtn" title="清空对话" data-i18n-title="clearTip" aria-label="清空对话">
-          <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6.5 7l.8 12h9.4l.8-12"/></svg>
-        </button>
-        <!-- 语言一键切换 -->
-        <div class="lang-switch" role="group" aria-label="语言切换 / 言語切替">
-          <button id="langZH" class="lang-btn active" type="button" aria-pressed="true">中</button>
-          <button id="langJA" class="lang-btn" type="button" aria-pressed="false">日</button>
-        </div>
-      </div>
-    </header>
+      <section class="console-stream">
+        <header class="stream-head">
+          <span class="stream-label" id="streamLabel">—</span>
+          <div class="stream-tools">
+            <button class="mini-btn" id="endBtn" type="button" data-i18n="endTalk">结束谈话</button>
+            <button class="mini-btn" id="clearBtn" type="button" data-i18n="clear">清空</button>
+          </div>
+        </header>
 
-    <!-- 双工作台标签：选品 / Listing（各自独立聊天流与谈话会话） -->
-    <nav class="tabs" id="tabs">
-      <button class="tab active" data-bench="research" type="button" data-i18n="tabResearch">选品工作台</button>
-      <button class="tab" data-bench="listing" type="button" data-i18n="tabListing">Listing 工作台</button>
-    </nav>
+        <div class="msgs is-active" id="msgs-research"></div>
+        <div class="msgs" id="msgs-listing"></div>
 
-    <div class="msgs active" id="msgs-research"></div>
-    <div class="msgs" id="msgs-listing"></div>
-
-    <footer class="composer">
-      <!-- 每个工作台各自的快捷提问 -->
-      <div class="quick-row" id="chips-research">
-        <button class="quick" data-q-key="r1" type="button" data-i18n="r1">帮我选个充电宝</button>
-        <button class="quick" data-q-key="r2" type="button" data-i18n="r2">对比蓝牙耳机供应商</button>
-        <button class="quick" data-q-key="r3" type="button" data-i18n="r3">充电宝利润测算</button>
-      </div>
-      <div class="quick-row" id="chips-listing" hidden>
-        <button class="quick" data-q-key="l1" type="button" data-i18n="l1">给云感耳机写 Listing</button>
-        <button class="quick" data-q-key="l2" type="button" data-i18n="l2">检查主图合规</button>
-        <button class="quick" data-q-key="l3" type="button" data-i18n="l3">云感耳机定价建议</button>
-      </div>
-      <div class="composer-box">
-        <textarea id="input" rows="1" data-i18n-ph="placeholder" placeholder="输入选品/上架需求…（Enter 发送）"></textarea>
-        <div class="composer-ctrl">
-          <span class="hint" id="hint" data-i18n="hint">AI 多智能体工作台 · 选品 + Listing 上架</span>
-          <button class="btn btn-send" id="sendBtn" type="button" aria-label="发送">
-            <svg viewBox="0 0 24 24"><path d="M4.5 11.5 20 4l-7.5 15.5-2-6-6-2z"/></svg>
+        <div class="composer">
+          <textarea id="input" rows="1" data-i18n-ph="placeholder" placeholder="直接说需求…（Enter 发送 / Shift+Enter 换行）"></textarea>
+          <button class="btn-send" id="sendBtn" type="button" aria-label="发送">
+            <svg viewBox="0 0 24 24"><path d="M4 11.6 20.5 4 13 20.5l-2.1-6.4z"/></svg>
           </button>
         </div>
+        <p class="hint" id="hint" data-i18n="hint">AI 多智能体 · 选品 + 上架</p>
+      </section>
+    </div>
+  </section>
+</main>
+
+<!-- ========== 设置弹窗 ========== -->
+<div class="modal" id="settingsModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <header class="modal-head">
+      <div>
+        <p class="modal-kicker">CONFIG / RUNTIME</p>
+        <h2 id="setTitle" data-i18n="settingsTitle">运行时配置</h2>
       </div>
+      <button class="modal-close" id="settingsClose" type="button" aria-label="关闭">✕</button>
+    </header>
+
+    <div class="modal-body">
+      <div class="field">
+        <label for="setKey" data-i18n="setKey">API Key</label>
+        <input id="setKey" type="password" placeholder="粘贴你的密钥…" autocomplete="off" spellcheck="false">
+        <small class="field-note" id="setKeyNow"></small>
+      </div>
+      <div class="field">
+        <label for="setUrl" data-i18n="setUrl">请求地址（Base URL）</label>
+        <input id="setUrl" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="setModel" data-i18n="setModel">模型 ID</label>
+        <input id="setModel" type="text" placeholder="glm-5.3-flash" spellcheck="false">
+      </div>
+      <label class="check-field">
+        <input type="checkbox" id="setPersist">
+        <span data-i18n="setPersist">写入本机 .env（重启后仍生效）</span>
+      </label>
+      <p class="modal-msg" id="setMsg"></p>
+    </div>
+
+    <footer class="modal-foot">
+      <button class="btn is-ghost" id="setTest" type="button" data-i18n="setTest">测试连接</button>
+      <button class="btn is-primary" id="setSave" type="button" data-i18n="setSave">保存并应用</button>
     </footer>
-  </main>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>
